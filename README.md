@@ -284,6 +284,21 @@ docker-compose logs postgres
 
 ## Production Deployment
 
+### Deploy to Railway (Recommended - 5 Minutes)
+
+Railway provides the easiest cloud deployment with PostgreSQL included.
+
+**Quick Deploy:**
+1. Go to https://railway.app
+2. Login with GitHub
+3. Deploy from repo: `DJCELL1/hdl-po-receipt-tool`
+4. Add PostgreSQL database
+5. Set environment variables (see RAILWAY_QUICK_START.md)
+
+**Full Guide:** See [RAILWAY_QUICK_START.md](RAILWAY_QUICK_START.md) or [DEPLOY_TO_RAILWAY.md](DEPLOY_TO_RAILWAY.md)
+
+### Manual Production Deployment
+
 1. Set strong `JWT_SECRET`
 2. Use environment-specific `.env` files
 3. Enable HTTPS/SSL
