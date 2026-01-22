@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "postbuild": "npm run migrate:prod",
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "migrate": "node -r dotenv/config dist/database/migrate.js"
+    "migrate": "node -r dotenv/config dist/database/migrate.js",
+    "migrate:prod": "node dist/database/migrate.js"
   },
   "dependencies": {
     "@types/bcrypt": "^5.0.2",

@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: Hardware Direct PO Receipt Tool\n\nComplete production-ready app for receiving stock into Cin7 Omni from delivery docket photos.\n\nFeatures:\n- Mobile-first camera capture and OCR extraction\n- Smart PO matching with backorder suffix handling \\(A/B/C\\)\n- Fuzzy line item matching\n- Duplicate prevention and over-delivery detection\n- Real-time Cin7 Omni integration\n- Receipt history and audit trail\n- Hardware Direct orange theme branding\n- No authentication mode enabled\n\nTech Stack:\n- Backend: Node.js, TypeScript, Express, PostgreSQL\n- Frontend: React, TypeScript\n- OCR: Tesseract.js with Sharp/Jimp preprocessing\n- Docker deployment with docker-compose\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(gh repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

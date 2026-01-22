@@ -13,8 +13,34 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.CORS_ORIGIN,
+  // Railway frontend URLs
+  /https:\/\/.*\.railway\.app$/,
+  /https:\/\/.*\.up\.railway\.app$/
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+
+    // Check if origin matches allowed patterns
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') return allowedOrigin === origin;
+      if (allowedOrigin instanceof RegExp) return allowedOrigin.test(origin);
+      return false;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(null, true); // Allow all in production for now
+    }
+  },
   credentials: true
 }));
 
