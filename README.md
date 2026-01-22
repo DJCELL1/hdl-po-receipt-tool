@@ -1,315 +1,302 @@
-# Cin7 Docket Receiver
+# HDL PO Receipt Tool
 
-Production-ready web application for streamlining stock receiving into Cin7 Omni by scanning delivery docket photos.
+Production-ready Streamlit application for receiving Purchase Orders in Cin7 Omni by capturing delivery dockets, extracting data via OCR, and receipting quantities accurately.
 
 ## Features
 
-- **Mobile-first UI** - Optimized for smartphone camera capture
-- **OCR Processing** - Automated text extraction from docket photos/PDFs with preprocessing
-- **Smart PO Matching** - Handles backorder suffixes (A/B/C) and fuzzy matching
-- **Line Item Matching** - Automatic SKU matching with fuzzy fallback
-- **Duplicate Detection** - Prevents accidental double-receipting
-- **Receipt History** - Full audit trail of all receipts
-- **Cin7 Integration** - Direct API integration with retry logic and rate limiting
+- 📸 **Mobile-friendly capture** - Take photos directly from your device
+- 🔍 **OCR extraction** - Automatic text extraction with Tesseract
+- 🎯 **Smart PO matching** - Handles backorder suffixes (A/B/C)
+- ✅ **Line-by-line matching** - Fuzzy matching with manual override
+- 🔒 **Duplicate prevention** - Prevents double receipting
+- 📊 **Audit trail** - Full database logging
+- 🔄 **Rate limit compliance** - Cin7 API rate limiting (3/sec, 60/min, 5000/day)
+- ⚡ **Retry logic** - Automatic exponential backoff
 
 ## Tech Stack
 
-**Backend:**
-- Node.js 20 + TypeScript
-- Express.js
-- PostgreSQL
-- Tesseract.js (OCR)
-- Sharp + Jimp (image preprocessing)
-
-**Frontend:**
-- React 18 + TypeScript
-- React Router
-- Axios
-
-**Infrastructure:**
-- Docker + Docker Compose
-- Nginx (production)
+- **Frontend/Backend**: Streamlit (Python)
+- **Database**: PostgreSQL
+- **OCR**: Tesseract + OpenCV
+- **API**: Cin7 Omni REST API
+- **Deployment**: Docker + Docker Compose
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Docker & Docker Compose
 - Cin7 Omni API credentials
+- (Optional) Tesseract OCR for local development
 
-### Setup
+### Installation
 
-1. **Clone and configure**
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Receipt
+   ```
+
+2. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Cin7 API credentials
+   ```
+
+3. **Start with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Run database migration**
+   ```bash
+   docker-compose exec app python database/migrate.py
+   ```
+
+5. **Access the application**
+   ```
+   http://localhost:8501
+   ```
+
+## Manual Setup (Without Docker)
+
+### 1. Install System Dependencies
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install tesseract-ocr python3-opencv postgresql
+```
+
+**macOS:**
+```bash
+brew install tesseract opencv postgresql
+```
+
+**Windows:**
+- Download Tesseract: https://github.com/UB-Mannheim/tesseract/wiki
+- Install PostgreSQL: https://www.postgresql.org/download/windows/
+
+### 2. Install Python Dependencies
 
 ```bash
-cd cin7-docket-receiver
-cp .env.example .env
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-2. **Edit `.env` with your Cin7 credentials**
-
-```env
-CIN7_API_KEY=your-api-key
-CIN7_API_SECRET=your-api-secret
-JWT_SECRET=generate-a-random-secret
-```
-
-3. **Start with Docker**
+### 3. Set up Database
 
 ```bash
-docker-compose up -d
+# Create PostgreSQL database
+createdb hdl_receipts
+
+# Run migration
+python database/migrate.py
 ```
 
-4. **Access the application**
+### 4. Configure Environment
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
+Edit `.env` file with your settings (see `.env.example`)
 
-5. **Create an account**
-
-Navigate to http://localhost:3000/register and create your first user account.
-
-## Development Setup
-
-### Backend
+### 5. Run Application
 
 ```bash
-cd backend
-npm install
-cp ../.env.example .env
-# Edit .env with your configuration
-npm run dev
+streamlit run app.py
 ```
 
-### Frontend
+## Configuration
+
+### Environment Variables
+
+Key configuration options in `.env`:
 
 ```bash
-cd frontend
-npm install
-echo "REACT_APP_API_URL=http://localhost:3001" > .env
-npm start
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/hdl_receipts
+
+# Cin7 API
+CIN7_API_KEY=your_api_key
+CIN7_API_SECRET=your_api_secret
+
+# OCR (adjust path for your system)
+TESSERACT_CMD=/usr/bin/tesseract
+
+# Fuzzy matching threshold (0-100)
+FUZZY_MATCH_THRESHOLD=85
 ```
 
-### Database Migration
+## Application Flow
 
-```bash
-cd backend
-npm run migrate
+### Page 1: Upload Docket
+- 📷 Capture via camera (mobile-friendly)
+- 📁 Upload JPG/PNG/PDF
+
+### Page 2: Review Extraction
+- Review OCR results
+- Edit supplier, docket number, PO reference
+- Verify line items
+- All fields are editable
+
+### Page 3: Match PO
+- Automatic search in Cin7
+- Handles backorder suffixes (PO-12345A/B/C)
+- Best match highlighted
+- Manual search override available
+
+### Page 4: Match Lines
+- Side-by-side docket vs PO comparison
+- Exact SKU matching
+- Fuzzy description matching
+- Flags: over-delivery, SKU not found
+- Manual quantity adjustment
+
+### Page 5: Submit Receipt
+- Final review
+- Duplicate detection
+- Submit to Cin7 Omni
+- Full audit logging
+
+## PO Reference Handling
+
+The app intelligently handles backorder PO references:
+
+```python
+PO-12345   → Base reference
+PO-12345A  → Backorder A
+PO-12345B  → Backorder B
+PO-12345C  → Backorder C
 ```
 
-## Project Structure
-
-```
-cin7-docket-receiver/
-├── backend/
-│   ├── src/
-│   │   ├── cin7/              # Cin7 API client
-│   │   │   ├── cin7Client.ts   # Main API client with retry & pagination
-│   │   │   ├── rateLimiter.ts  # Rate limit enforcement
-│   │   │   └── types.ts        # TypeScript interfaces
-│   │   ├── database/           # Database layer
-│   │   │   ├── db.ts           # Connection pool
-│   │   │   ├── schema.sql      # Database schema
-│   │   │   └── migrate.ts      # Migration runner
-│   │   ├── middleware/         # Express middleware
-│   │   │   └── auth.ts         # JWT authentication
-│   │   ├── routes/             # API endpoints
-│   │   │   ├── auth.routes.ts  # Login/register
-│   │   │   └── docket.routes.ts # Docket processing
-│   │   ├── services/           # Business logic
-│   │   │   ├── ocrService.ts   # OCR processing
-│   │   │   ├── imagePreprocessor.ts # Image enhancement
-│   │   │   └── poMatcher.ts    # PO matching algorithm
-│   │   ├── utils/              # Utilities
-│   │   │   └── poReference.ts  # PO reference parser
-│   │   └── server.ts           # Express app
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── context/            # React context
-│   │   │   └── AuthContext.tsx # Auth state management
-│   │   ├── pages/              # Page components
-│   │   │   ├── Login.tsx
-│   │   │   ├── Dashboard.tsx
-│   │   │   ├── CaptureScreen.tsx
-│   │   │   ├── ReviewExtraction.tsx
-│   │   │   ├── MatchPo.tsx
-│   │   │   ├── MatchLines.tsx
-│   │   │   ├── ConfirmReceipt.tsx
-│   │   │   ├── ReceiptResult.tsx
-│   │   │   └── ReceiptHistory.tsx
-│   │   ├── services/           # API client
-│   │   │   └── api.ts
-│   │   ├── App.tsx
-│   │   └── index.tsx
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/auth/register` - Create new user
-- `POST /api/auth/login` - Login
-
-### Dockets
-
-- `POST /api/dockets/upload` - Upload and process docket
-- `POST /api/dockets/match-po` - Match to Purchase Order
-- `POST /api/dockets/match-lines` - Match line items
-- `POST /api/dockets/receipt` - Create receipt in Cin7
-- `GET /api/dockets/receipts` - Get receipt history
-- `GET /api/dockets/receipts/:id` - Get receipt details
-
-## Cin7 API Integration
-
-### PO Reference Parsing
-
-The app intelligently handles backorder suffixes:
-
-```typescript
-PO-12345A -> base: PO-12345, suffix: A
-PO-12345  -> base: PO-12345, suffix: null
-```
-
-**Matching Strategy:**
-1. Try exact match on normalized reference
-2. If no match and suffix exists, try base reference
-3. If still no match, try wildcard search (base%)
-4. Rank candidates by supplier match and line item similarity
-
-### Rate Limiting
-
-Respects Cin7 API limits:
-- 3 requests/second
-- 60 requests/minute
-- 5000 requests/day
-
-Implements exponential backoff for 429/503 errors.
-
-### Receipt Process
-
-1. Fetches current PO state
-2. Updates `ReceivedQty` on matching line items
-3. Submits via `PUT /v1/PurchaseOrders/{id}`
-
-## Testing
-
-```bash
-# Backend tests
-cd backend
-npm test
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-### Test Coverage
-
-- PO reference parsing (normalizePoRef, suffix detection)
-- Rate limiter (throttling, reset)
-- Matching algorithm (exact, fuzzy, wildcard)
-- OCR parsing (line item extraction)
+**Matching Logic:**
+1. Exact match on full reference
+2. If suffix present, try base reference
+3. Wildcard search for related POs
+4. Rank by supplier similarity & recency
 
 ## Business Rules
 
-### Partial Deliveries
-- Allows receiving quantities less than ordered
-- Tracks remaining quantity
+- ✅ Partial deliveries supported
+- ⚠️ Over-delivery requires explicit confirmation
+- 🚫 Duplicate docket detection with override option
+- ⚠️ Missing SKU allowed but flagged
+- ⚠️ Fuzzy matches always require confirmation
 
-### Over-Deliveries
-- Flags when delivered qty > ordered qty
-- Requires explicit override checkbox
+## API Rate Limiting
 
-### Duplicate Detection
-- Checks supplier + docket number
-- Blocks by default with override option
+Cin7 API limits:
+- 3 requests per second
+- 60 requests per minute
+- 5000 requests per day
 
-### Backorder Handling
-- PO-12345A searches for exact match first
-- Falls back to base PO-12345 if not found
-- Shows all related POs for user selection
+The app automatically:
+- Enforces rate limits
+- Retries on 429 (rate limit)
+- Exponential backoff on 503
+- Handles pagination
 
-## Security
+## Testing
 
-- JWT-based authentication
-- Password hashing with bcrypt
-- SQL injection protection (parameterized queries)
-- Input validation with express-validator
-- CORS protection
-- Secure headers (nginx)
+Run unit tests:
 
-## Performance
+```bash
+# All tests
+pytest
 
-- Database connection pooling
-- Image preprocessing for better OCR
-- Lazy loading of receipts
-- Pagination on all list endpoints
+# Specific test file
+pytest tests/test_po_matcher.py
+
+# With coverage
+pytest --cov=. --cov-report=html
+
+# Exclude slow tests
+pytest -m "not slow"
+```
 
 ## Troubleshooting
 
 ### OCR Not Working
-
-Ensure Tesseract is installed:
-```bash
-# macOS
-brew install tesseract
-
-# Ubuntu/Debian
-apt-get install tesseract-ocr
-
-# Docker (already included)
-```
-
-### Database Connection Issues
-
-Check PostgreSQL is running:
-```bash
-docker-compose ps
-docker-compose logs postgres
-```
+- Verify Tesseract is installed: `tesseract --version`
+- Check TESSERACT_CMD path in `.env`
+- Ensure image quality is good (well-lit, in focus)
 
 ### Cin7 API Errors
-
 - Verify API credentials in `.env`
-- Check rate limits haven't been exceeded
-- Ensure PO exists and is in correct status
+- Check API key has correct permissions
+- Review rate limit status in logs
 
-## Production Deployment
+### Database Connection Errors
+- Verify PostgreSQL is running
+- Check DATABASE_URL in `.env`
+- Run migration: `python database/migrate.py`
 
-### Deploy to Railway (Recommended - 5 Minutes)
+### Docker Issues
+- Check logs: `docker-compose logs app`
+- Verify .env file is in place
+- Restart: `docker-compose restart`
 
-Railway provides the easiest cloud deployment with PostgreSQL included.
+## Project Structure
 
-**Quick Deploy:**
-1. Go to https://railway.app
-2. Login with GitHub
-3. Deploy from repo: `DJCELL1/hdl-po-receipt-tool`
-4. Add PostgreSQL database
-5. Set environment variables (see RAILWAY_QUICK_START.md)
+```
+Receipt/
+├── app.py                  # Main Streamlit app
+├── config.py               # Configuration loader
+├── requirements.txt        # Python dependencies
+├── Dockerfile             # Docker container config
+├── docker-compose.yml     # Multi-container setup
+├── cin7/
+│   ├── cin7_client.py     # Cin7 API client
+│   └── rate_limiter.py    # Rate limiting logic
+├── database/
+│   ├── db.py              # SQLAlchemy models
+│   ├── schema.sql         # Database schema
+│   └── migrate.py         # Migration script
+├── services/
+│   ├── ocr_service.py     # OCR extraction
+│   ├── image_processor.py # Image preprocessing
+│   └── po_matcher.py      # PO matching logic
+├── pages/
+│   ├── page1_upload.py    # Upload page
+│   ├── page2_review.py    # Review extraction
+│   ├── page3_match_po.py  # PO matching
+│   ├── page4_match_lines.py # Line matching
+│   └── page5_submit.py    # Submit receipt
+└── tests/
+    ├── test_po_matcher.py
+    ├── test_rate_limiter.py
+    ├── test_cin7_client.py
+    └── test_ocr_service.py
+```
 
-**Full Guide:** See [RAILWAY_QUICK_START.md](RAILWAY_QUICK_START.md) or [DEPLOY_TO_RAILWAY.md](DEPLOY_TO_RAILWAY.md)
+## Security Considerations
 
-### Manual Production Deployment
+- 🔐 Store API credentials in environment variables
+- 🔐 Use HTTPS in production
+- 🔐 Implement user authentication (TODO)
+- 🔐 Validate all user inputs
+- 🔐 Audit all database operations
 
-1. Set strong `JWT_SECRET`
-2. Use environment-specific `.env` files
-3. Enable HTTPS/SSL
-4. Configure backup for PostgreSQL
-5. Set up monitoring and logging
-6. Use production-grade secrets management
+## Future Enhancements
 
-## License
-
-Proprietary - All rights reserved
+- [ ] User authentication & authorization
+- [ ] Receipt history dashboard
+- [ ] Email notifications
+- [ ] Barcode scanning support
+- [ ] Multi-language OCR
+- [ ] Bulk receipt upload
+- [ ] Advanced analytics
 
 ## Support
 
-For issues and questions, contact your system administrator.
+For issues or questions:
+- Check logs: `docker-compose logs app`
+- Review documentation
+- Contact: support@hdl.com (adjust as needed)
+
+## License
+
+Proprietary - HDL Internal Use Only
+
+## Authors
+
+Built for HDL Warehouse Operations

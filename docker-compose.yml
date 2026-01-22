@@ -1,62 +1,58 @@
+# HDL PO Receipt Tool - Docker Compose Configuration
+
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: hdl-po-receipt-db
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: hdl_receipts_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: cin7_hdl_receipt
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-hdl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      POSTGRES_DB: ${POSTGRES_DB:-hdl_receipts}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - hdl_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hdl_user}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: hdl-po-receipt-backend
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: cin7_hdl_receipt
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
-      CIN7_API_KEY: ${CIN7_API_KEY}
-      CIN7_API_SECRET: ${CIN7_API_SECRET}
-      CIN7_BASE_URL: ${CIN7_BASE_URL:-https://api.cin7.com/api}
-      CORS_ORIGIN: http://localhost:3000
+  # Streamlit App
+  app:
+    build: .
+    container_name: hdl_receipts_app
+    restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "8501:8501"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hdl_user}:${POSTGRES_PASSWORD:-changeme_in_production}@db:5432/${POSTGRES_DB:-hdl_receipts}
+      - CIN7_API_BASE_URL=${CIN7_API_BASE_URL}
+      - CIN7_API_KEY=${CIN7_API_KEY}
+      - CIN7_API_SECRET=${CIN7_API_SECRET}
+      - TESSERACT_CMD=/usr/bin/tesseract
+      - UPLOAD_DIR=/app/uploads
+      - APP_ENV=${APP_ENV:-production}
     volumes:
-      - ./backend/uploads:/app/uploads
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: hdl-po-receipt-frontend
-    environment:
-      REACT_APP_API_URL: http://localhost:3001
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+    networks:
+      - hdl_network
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  hdl_network:
+    driver: bridge

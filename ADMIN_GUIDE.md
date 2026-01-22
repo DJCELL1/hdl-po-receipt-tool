@@ -1,507 +1,746 @@
-# Cin7 Docket Receiver - Admin Guide
+# HDL PO Receipt Tool - Administrator Guide
+
+Complete guide for administering and maintaining the HDL PO Receipt Tool.
 
 ## Table of Contents
 
-1. [System Requirements](#system-requirements)
-2. [Installation](#installation)
-3. [Configuration](#configuration)
-4. [User Management](#user-management)
-5. [Monitoring](#monitoring)
+1. [System Administration](#system-administration)
+2. [User Management](#user-management)
+3. [Database Management](#database-management)
+4. [Monitoring & Logs](#monitoring--logs)
+5. [Troubleshooting](#troubleshooting)
 6. [Backup & Recovery](#backup--recovery)
-7. [Troubleshooting](#troubleshooting)
-8. [Maintenance](#maintenance)
-
-## System Requirements
-
-### Minimum Requirements
-- **CPU:** 2 cores
-- **RAM:** 4 GB
-- **Storage:** 20 GB
-- **OS:** Linux, macOS, or Windows with Docker support
-
-### Recommended for Production
-- **CPU:** 4+ cores
-- **RAM:** 8 GB
-- **Storage:** 50 GB SSD
-- **OS:** Ubuntu 22.04 LTS or similar
-
-### Software Dependencies
-- Docker 24.0+
-- Docker Compose 2.0+
-- PostgreSQL 16 (via Docker)
-- Node.js 20 (via Docker)
-
-## Installation
-
-### Docker Installation (Recommended)
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd cin7-docket-receiver
-```
-
-2. **Configure environment**
-```bash
-cp .env.example .env
-nano .env  # Edit with your settings
-```
-
-3. **Start services**
-```bash
-docker-compose up -d
-```
-
-4. **Verify installation**
-```bash
-docker-compose ps
-curl http://localhost:3001/health
-```
-
-Expected response:
-```json
-{"status":"ok","database":"connected"}
-```
-
-### Manual Installation (Development)
-
-**Backend:**
-```bash
-cd backend
-npm install
-cp ../.env.example .env
-# Edit .env
-npm run migrate
-npm run dev
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-echo "REACT_APP_API_URL=http://localhost:3001" > .env
-npm start
-```
-
-## Configuration
-
-### Environment Variables
-
-#### Required Settings
-
-```env
-# Cin7 API Credentials (CRITICAL)
-CIN7_API_KEY=your-api-key-here
-CIN7_API_SECRET=your-api-secret-here
-
-# Security (CHANGE IN PRODUCTION)
-JWT_SECRET=generate-random-secret-min-32-chars
-```
-
-#### Database Configuration
-
-```env
-DB_HOST=postgres  # Use 'localhost' for manual install
-DB_PORT=5432
-DB_NAME=cin7_receiver
-DB_USER=postgres
-DB_PASSWORD=postgres  # Change in production
-```
-
-#### Application Settings
-
-```env
-# Backend
-PORT=3001
-NODE_ENV=production
-CORS_ORIGIN=http://localhost:3000  # Update for production domain
-
-# Frontend
-REACT_APP_API_URL=http://localhost:3001  # Update for production
-```
-
-### Obtaining Cin7 API Credentials
-
-1. Log into Cin7 Omni
-2. Navigate to **Settings** > **API**
-3. Click **Generate API Key**
-4. Copy the API Key and API Secret
-5. Add to `.env` file
-
-**Important:** Keep API credentials secure. Never commit to version control.
-
-### Generating JWT Secret
-
-```bash
-# Linux/macOS
-openssl rand -base64 32
-
-# Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
-
-## User Management
-
-### Creating First Admin User
-
-After installation, register the first user:
-
-1. Navigate to `http://localhost:3000/register`
-2. Fill in email, password, and name
-3. Click Register
-
-**Note:** All users have the same permissions. Implement role-based access control if needed.
-
-### Resetting User Password (Database Access Required)
-
-```sql
--- Connect to database
-docker exec -it cin7-receiver-db psql -U postgres -d cin7_receiver
-
--- Reset password (hash for "newpassword123")
-UPDATE users
-SET password_hash = '$2b$10$...' -- Generate with bcrypt
-WHERE email = 'user@example.com';
-```
-
-Generate bcrypt hash:
-```bash
-node -e "console.log(require('bcrypt').hashSync('newpassword123', 10))"
-```
-
-### Listing Users
-
-```sql
-SELECT id, email, name, created_at FROM users;
-```
-
-### Deleting User
-
-```sql
--- This will cascade delete all user's receipts
-DELETE FROM users WHERE email = 'user@example.com';
-```
-
-## Monitoring
-
-### Health Checks
-
-**Backend API:**
-```bash
-curl http://localhost:3001/health
-```
-
-**Database:**
-```bash
-docker exec cin7-receiver-db pg_isready -U postgres
-```
-
-### Logs
-
-**View all logs:**
-```bash
-docker-compose logs -f
-```
-
-**Backend logs only:**
-```bash
-docker-compose logs -f backend
-```
-
-**Database logs:**
-```bash
-docker-compose logs -f postgres
-```
-
-### Database Statistics
-
-```sql
--- Connect to database
-docker exec -it cin7-receiver-db psql -U postgres -d cin7_receiver
-
--- Receipt statistics
-SELECT
-    status,
-    COUNT(*) as count,
-    DATE(created_at) as date
-FROM receipts
-GROUP BY status, DATE(created_at)
-ORDER BY date DESC
-LIMIT 30;
-
--- User activity
-SELECT
-    u.email,
-    COUNT(r.id) as total_receipts,
-    MAX(r.created_at) as last_receipt
-FROM users u
-LEFT JOIN receipts r ON r.user_id = u.id
-GROUP BY u.id, u.email;
-
--- Failed receipts
-SELECT
-    cin7_po_reference,
-    error_message,
-    created_at
-FROM receipts
-WHERE status = 'failed'
-ORDER BY created_at DESC
-LIMIT 20;
-```
-
-## Backup & Recovery
-
-### Database Backup
-
-**Automated daily backup (recommended):**
-
-Create backup script `/opt/backups/backup-cin7.sh`:
-```bash
-#!/bin/bash
-BACKUP_DIR="/opt/backups/cin7"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-mkdir -p $BACKUP_DIR
-
-docker exec cin7-receiver-db pg_dump -U postgres cin7_receiver > \
-    $BACKUP_DIR/cin7_receiver_$TIMESTAMP.sql
-
-# Keep last 30 days
-find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
-```
-
-Add to crontab:
-```bash
-0 2 * * * /opt/backups/backup-cin7.sh
-```
-
-**Manual backup:**
-```bash
-docker exec cin7-receiver-db pg_dump -U postgres cin7_receiver > backup.sql
-```
-
-### Database Restore
-
-```bash
-# Stop backend to prevent writes
-docker-compose stop backend
-
-# Restore
-docker exec -i cin7-receiver-db psql -U postgres cin7_receiver < backup.sql
-
-# Restart
-docker-compose start backend
-```
-
-### Uploaded Files Backup
-
-```bash
-# Backup uploads directory
-tar -czf uploads-backup-$(date +%Y%m%d).tar.gz backend/uploads/
-
-# Restore
-tar -xzf uploads-backup-YYYYMMDD.tar.gz -C backend/
-```
-
-## Troubleshooting
-
-### Issue: Cannot connect to database
-
-**Symptoms:** Backend logs show "database connection failed"
-
-**Solutions:**
-1. Check PostgreSQL is running:
-   ```bash
-   docker-compose ps postgres
-   ```
-
-2. Check database credentials in `.env`
-
-3. Restart database:
-   ```bash
-   docker-compose restart postgres
-   ```
-
-4. Check logs:
-   ```bash
-   docker-compose logs postgres
-   ```
-
-### Issue: OCR not extracting text correctly
-
-**Symptoms:** Extracted data is empty or garbled
-
-**Solutions:**
-1. Ensure image quality is good (not blurry, well-lit)
-2. Try uploading PDF instead of image
-3. Check Tesseract is installed in backend container:
-   ```bash
-   docker exec cin7-receiver-backend tesseract --version
-   ```
-
-4. Review raw OCR text in database:
-   ```sql
-   SELECT raw_text FROM extractions ORDER BY id DESC LIMIT 5;
-   ```
-
-### Issue: Cin7 API errors
-
-**Symptoms:** "Failed to match PO" or "Failed to create receipt"
-
-**Solutions:**
-1. Verify API credentials:
-   ```bash
-   docker exec cin7-receiver-backend env | grep CIN7
-   ```
-
-2. Test API connection manually:
-   ```bash
-   curl -u "API_KEY:API_SECRET" https://api.cin7.com/api/v1/PurchaseOrders?rows=1
-   ```
-
-3. Check rate limits:
-   - 3 requests/second
-   - 60 requests/minute
-   - 5000 requests/day
-
-4. Review Cin7 API status: https://status.cin7.com
-
-### Issue: Frontend not loading
-
-**Symptoms:** Blank page or connection refused
-
-**Solutions:**
-1. Check frontend container:
-   ```bash
-   docker-compose ps frontend
-   docker-compose logs frontend
-   ```
-
-2. Verify API URL in frontend `.env`:
-   ```bash
-   docker exec cin7-receiver-frontend env | grep REACT_APP
-   ```
-
-3. Clear browser cache and hard refresh (Ctrl+Shift+R)
-
-### Issue: Duplicate docket error
-
-**Symptoms:** "Docket XXX has already been receipted"
-
-**Solutions:**
-1. This is intentional duplicate prevention
-2. Check if docket was already processed:
-   ```sql
-   SELECT * FROM receipts
-   WHERE docket_number = 'XXX'
-   AND status = 'completed';
-   ```
-
-3. If legitimate duplicate, use "Allow Override" checkbox in UI
-
-## Maintenance
-
-### Updating the Application
-
-```bash
-# Pull latest code
-git pull
-
-# Rebuild containers
-docker-compose build
-
-# Restart with new images
-docker-compose down
-docker-compose up -d
-
-# Run any new migrations
-docker exec cin7-receiver-backend npm run migrate
-```
-
-### Database Cleanup
-
-**Remove old extractions (keep last 90 days):**
-```sql
-DELETE FROM extractions
-WHERE created_at < NOW() - INTERVAL '90 days';
-```
-
-**Remove old audit logs (keep last 180 days):**
-```sql
-DELETE FROM audit_log
-WHERE created_at < NOW() - INTERVAL '180 days';
-```
-
-**Vacuum database:**
-```sql
-VACUUM ANALYZE;
-```
-
-### Disk Space Management
-
-**Check upload directory size:**
-```bash
-du -sh backend/uploads/
-```
-
-**Remove old uploads (after backing up):**
-```bash
-find backend/uploads/ -type f -mtime +90 -delete
-```
-
-### Performance Tuning
-
-**PostgreSQL:**
-Edit `docker-compose.yml` and add:
-```yaml
-command:
-  - postgres
-  - -c
-  - max_connections=100
-  - -c
-  - shared_buffers=256MB
-  - -c
-  - effective_cache_size=1GB
-```
-
-**Backend Workers:**
-For high volume, run multiple backend instances behind a load balancer.
-
-### Security Updates
-
-**Update Docker images:**
-```bash
-docker-compose pull
-docker-compose up -d
-```
-
-**Update npm dependencies:**
-```bash
-cd backend && npm audit fix
-cd frontend && npm audit fix
-```
-
-## Production Deployment Checklist
-
-- [ ] Change `JWT_SECRET` to random 32+ character string
-- [ ] Change database password
-- [ ] Set `NODE_ENV=production`
-- [ ] Configure HTTPS/SSL (use reverse proxy like nginx)
-- [ ] Set up firewall rules (only expose 80/443)
-- [ ] Configure automated backups
-- [ ] Set up monitoring/alerting
-- [ ] Document disaster recovery procedure
-- [ ] Enable log rotation
-- [ ] Review and harden CORS settings
-- [ ] Set up fail2ban or similar for brute force protection
-- [ ] Configure rate limiting at reverse proxy level
-
-## Support Contacts
-
-- **Technical Issues:** [Your IT Department]
-- **Cin7 API Support:** https://support.cin7.com
-- **Application Bugs:** [Your Issue Tracker]
+7. [Performance Tuning](#performance-tuning)
+8. [Security](#security)
 
 ---
 
-**Last Updated:** January 2026
+## System Administration
+
+### Starting/Stopping the Application
+
+**Docker Deployment:**
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Stop all services
+docker-compose down
+
+# Restart a specific service
+docker-compose restart app
+docker-compose restart db
+
+# View service status
+docker-compose ps
+
+# View resource usage
+docker stats
+```
+
+**Manual Deployment:**
+
+```bash
+# Start application
+streamlit run app.py
+
+# With custom port
+streamlit run app.py --server.port 8502
+
+# Start PostgreSQL
+sudo systemctl start postgresql
+
+# Stop PostgreSQL
+sudo systemctl stop postgresql
+```
+
+### Application Configuration
+
+Configuration is managed via `.env` file:
+
+```bash
+# Edit configuration
+nano .env
+
+# Restart application to apply changes
+docker-compose restart app
+```
+
+**Key Configuration Parameters:**
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | Required |
+| `CIN7_API_KEY` | Cin7 API key | Required |
+| `CIN7_API_SECRET` | Cin7 API secret | Required |
+| `TESSERACT_CMD` | Path to Tesseract binary | System-dependent |
+| `FUZZY_MATCH_THRESHOLD` | Fuzzy matching sensitivity (0-100) | 85 |
+| `MAX_UPLOAD_SIZE_MB` | Maximum file upload size | 10 |
+| `LOG_LEVEL` | Logging verbosity | INFO |
+
+### System Health Checks
+
+```bash
+# Check application health
+curl http://localhost:8501/_stcore/health
+
+# Check database connectivity
+docker-compose exec db pg_isready -U hdl_user
+
+# Check disk space
+df -h
+
+# Check Docker resources
+docker system df
+```
+
+---
+
+## User Management
+
+> **Note:** Current version uses basic user tracking via `st.session_state.user_id`. Production deployment should implement proper authentication.
+
+### Current User Tracking
+
+Users are tracked in database fields:
+- `uploaded_by`
+- `reviewed_by`
+- `posted_by`
+
+### Future Authentication (TODO)
+
+Recommended authentication methods:
+- **Streamlit-Authenticator**: For basic auth
+- **OAuth 2.0**: For enterprise SSO
+- **LDAP/Active Directory**: For domain integration
+
+### Audit Trail
+
+All actions are logged in the `audit_log` table:
+
+```sql
+-- View recent user actions
+SELECT * FROM audit_log
+ORDER BY created_at DESC
+LIMIT 100;
+
+-- Actions by specific user
+SELECT * FROM audit_log
+WHERE user_id = 'warehouse_user'
+ORDER BY created_at DESC;
+
+-- Actions on specific date
+SELECT * FROM audit_log
+WHERE DATE(created_at) = '2024-12-01';
+```
+
+---
+
+## Database Management
+
+### Database Access
+
+```bash
+# Docker deployment
+docker-compose exec db psql -U hdl_user -d hdl_receipts
+
+# Manual deployment
+psql -U hdl_user -d hdl_receipts
+```
+
+### Common Database Queries
+
+**View Recent Receipts:**
+
+```sql
+SELECT
+    po_reference,
+    supplier_name,
+    docket_number,
+    posted_at,
+    posted_by,
+    status
+FROM receipts
+ORDER BY posted_at DESC
+LIMIT 20;
+```
+
+**View Receipt Details:**
+
+```sql
+SELECT
+    r.po_reference,
+    r.docket_number,
+    rl.sku,
+    rl.description,
+    rl.quantity_received
+FROM receipts r
+JOIN receipt_lines rl ON r.id = rl.receipt_id
+WHERE r.po_reference = 'PO-12345';
+```
+
+**Check for Duplicates:**
+
+```sql
+SELECT
+    supplier_name,
+    docket_number,
+    COUNT(*) as count
+FROM receipts
+WHERE status = 'success'
+GROUP BY supplier_name, docket_number
+HAVING COUNT(*) > 1;
+```
+
+**View Failed Receipts:**
+
+```sql
+SELECT
+    po_reference,
+    error_message,
+    posted_at
+FROM receipts
+WHERE status = 'failed'
+ORDER BY posted_at DESC;
+```
+
+**Upload Statistics:**
+
+```sql
+SELECT
+    DATE(uploaded_at) as date,
+    COUNT(*) as uploads,
+    AVG(file_size_bytes / 1024.0 / 1024.0) as avg_size_mb
+FROM uploads
+GROUP BY DATE(uploaded_at)
+ORDER BY date DESC;
+```
+
+### Database Maintenance
+
+**Vacuum and Analyze:**
+
+```bash
+# Docker deployment
+docker-compose exec db psql -U hdl_user -d hdl_receipts -c "VACUUM ANALYZE;"
+
+# Manual deployment
+psql -U hdl_user -d hdl_receipts -c "VACUUM ANALYZE;"
+```
+
+**Check Database Size:**
+
+```sql
+SELECT
+    pg_size_pretty(pg_database_size('hdl_receipts')) as size;
+```
+
+**Check Table Sizes:**
+
+```sql
+SELECT
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+**Clean Old Upload Files:**
+
+```bash
+# Find files older than 90 days
+find uploads/ -name "*.jpg" -mtime +90 -type f
+
+# Delete files older than 90 days (be careful!)
+find uploads/ -name "*.jpg" -mtime +90 -type f -delete
+```
+
+---
+
+## Monitoring & Logs
+
+### Application Logs
+
+**Docker Deployment:**
+
+```bash
+# View all logs
+docker-compose logs -f
+
+# View app logs only
+docker-compose logs -f app
+
+# View last 100 lines
+docker-compose logs --tail=100 app
+
+# Save logs to file
+docker-compose logs app > app.log
+```
+
+**Log Files (Manual Deployment):**
+
+- Application log: `app.log`
+- Error log: Check console output
+
+### Log Analysis
+
+**Search for errors:**
+
+```bash
+# Docker
+docker-compose logs app | grep -i error
+
+# Manual
+cat app.log | grep -i error
+```
+
+**Monitor in real-time:**
+
+```bash
+# Docker
+docker-compose logs -f app | grep -i "error\|warning\|failed"
+
+# Manual
+tail -f app.log | grep -i "error\|warning\|failed"
+```
+
+### Cin7 API Rate Limit Monitoring
+
+Rate limit status is logged in the application. Check logs for:
+
+```
+INFO - Rate limit status: {per_second: {used: X, remaining: Y}}
+```
+
+**Check current rate limit:**
+
+```python
+from cin7.cin7_client import Cin7Client
+
+client = Cin7Client()
+status = client.get_rate_limit_status()
+print(status)
+```
+
+### Database Monitoring
+
+**Active Connections:**
+
+```sql
+SELECT
+    count(*) as connections
+FROM pg_stat_activity
+WHERE datname = 'hdl_receipts';
+```
+
+**Slow Queries:**
+
+```sql
+SELECT
+    pid,
+    now() - query_start as duration,
+    query
+FROM pg_stat_activity
+WHERE state = 'active'
+  AND now() - query_start > interval '5 seconds';
+```
+
+**Lock Monitoring:**
+
+```sql
+SELECT
+    locktype,
+    relation::regclass,
+    mode,
+    granted
+FROM pg_locks
+WHERE NOT granted;
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. OCR Not Extracting Text
+
+**Symptoms:**
+- No text extracted
+- Low confidence scores
+- Missing fields
+
+**Solutions:**
+
+```bash
+# Check Tesseract installation
+tesseract --version
+
+# Test Tesseract directly
+tesseract test_image.jpg output
+
+# Check image quality
+# - Ensure image is well-lit
+# - Check focus and resolution
+# - Verify no shadows or glare
+
+# Try aggressive preprocessing
+# (This is automatic if OCR confidence is low)
+```
+
+#### 2. Cin7 API Connection Failed
+
+**Symptoms:**
+- "Cin7 API Error"
+- Connection timeout
+
+**Solutions:**
+
+```bash
+# Test API credentials
+python -c "
+from cin7.cin7_client import Cin7Client
+try:
+    client = Cin7Client()
+    status = client.get_rate_limit_status()
+    print('API Connected:', status)
+except Exception as e:
+    print('API Error:', e)
+"
+
+# Check network connectivity
+curl -I https://api.cin7.com
+
+# Verify credentials in .env
+cat .env | grep CIN7
+```
+
+#### 3. Database Connection Failed
+
+**Symptoms:**
+- "Database connection error"
+- "Could not connect to database"
+
+**Solutions:**
+
+```bash
+# Check PostgreSQL is running
+sudo systemctl status postgresql
+
+# Test connection
+psql -U hdl_user -d hdl_receipts -c "SELECT 1;"
+
+# Check DATABASE_URL in .env
+cat .env | grep DATABASE_URL
+
+# Check database logs
+docker-compose logs db
+
+# Restart database
+docker-compose restart db
+```
+
+#### 4. Rate Limit Exceeded
+
+**Symptoms:**
+- "Rate limit exceeded"
+- 429 errors in logs
+
+**Solutions:**
+
+- Wait for rate limit to reset (1 second/1 minute/1 day)
+- Check if multiple instances are running
+- Review API usage in logs
+- Consider reducing concurrent operations
+
+#### 5. Duplicate Receipt Detection
+
+**Symptoms:**
+- "Duplicate detected" warning
+- Receipt blocked
+
+**Solutions:**
+
+```sql
+-- Check for duplicate
+SELECT * FROM receipts
+WHERE supplier_name = 'ACME Supplies'
+  AND docket_number = 'DKT-12345'
+  AND status = 'success';
+
+-- If false positive, use override checkbox in app
+-- Or delete incorrect duplicate (carefully!)
+DELETE FROM receipts WHERE id = 'uuid-here';
+```
+
+### Debug Mode
+
+Enable detailed logging:
+
+```bash
+# Edit .env
+LOG_LEVEL=DEBUG
+
+# Restart application
+docker-compose restart app
+
+# View detailed logs
+docker-compose logs -f app
+```
+
+---
+
+## Backup & Recovery
+
+### Database Backups
+
+**Automated Backup Script:**
+
+```bash
+#!/bin/bash
+# backup_db.sh
+
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/backups"
+BACKUP_FILE="$BACKUP_DIR/hdl_receipts_$DATE.sql"
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Backup database
+docker-compose exec -T db pg_dump -U hdl_user hdl_receipts > $BACKUP_FILE
+
+# Compress
+gzip $BACKUP_FILE
+
+# Delete backups older than 30 days
+find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
+
+echo "Backup completed: $BACKUP_FILE.gz"
+```
+
+**Schedule with Cron:**
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 2 AM
+0 2 * * * /path/to/backup_db.sh >> /var/log/hdl_backup.log 2>&1
+```
+
+**Manual Backup:**
+
+```bash
+# Docker deployment
+docker-compose exec -T db pg_dump -U hdl_user hdl_receipts > backup.sql
+
+# Manual deployment
+pg_dump -U hdl_user hdl_receipts > backup.sql
+
+# Compress
+gzip backup.sql
+```
+
+### Restore from Backup
+
+```bash
+# Docker deployment
+gunzip backup.sql.gz
+docker-compose exec -T db psql -U hdl_user -d hdl_receipts < backup.sql
+
+# Manual deployment
+gunzip backup.sql.gz
+psql -U hdl_user -d hdl_receipts < backup.sql
+```
+
+### File Backups
+
+```bash
+# Backup uploaded files
+tar -czf uploads_backup.tar.gz uploads/
+
+# Restore
+tar -xzf uploads_backup.tar.gz
+```
+
+---
+
+## Performance Tuning
+
+### Database Optimization
+
+**Add Indexes:**
+
+```sql
+-- Already created by schema.sql, but can add more:
+CREATE INDEX idx_receipts_supplier ON receipts(supplier_name);
+CREATE INDEX idx_receipts_date ON receipts(receipt_date);
+```
+
+**Query Optimization:**
+
+```sql
+-- Analyze query performance
+EXPLAIN ANALYZE
+SELECT * FROM receipts
+WHERE po_reference = 'PO-12345';
+```
+
+**Increase Connection Pool:**
+
+Edit `.env`:
+```bash
+DATABASE_URL=postgresql://user:password@host:5432/db?pool_size=20&max_overflow=40
+```
+
+### Application Performance
+
+**Streamlit Configuration:**
+
+Create `.streamlit/config.toml`:
+
+```toml
+[server]
+maxUploadSize = 10
+maxMessageSize = 200
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = false
+fastReruns = true
+```
+
+**Image Processing:**
+
+- Reduce image resolution before OCR
+- Use aggressive preprocessing only when needed
+- Consider async processing for large batches
+
+---
+
+## Security
+
+### Access Control
+
+**Firewall Rules:**
+
+```bash
+# Allow only specific IPs (example)
+sudo ufw allow from 192.168.1.0/24 to any port 8501
+
+# Block all other access
+sudo ufw deny 8501
+```
+
+**Nginx Basic Auth (if using reverse proxy):**
+
+```bash
+# Create password file
+sudo htpasswd -c /etc/nginx/.htpasswd admin
+
+# Add to nginx config
+location / {
+    auth_basic "Restricted";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    proxy_pass http://localhost:8501;
+}
+```
+
+### Security Best Practices
+
+1. ✅ **Keep credentials secure**
+   - Never commit `.env` to git
+   - Use strong passwords
+   - Rotate API keys regularly
+
+2. ✅ **Regular updates**
+   ```bash
+   # Update dependencies
+   pip install --upgrade -r requirements.txt
+
+   # Update Docker images
+   docker-compose pull
+   docker-compose up -d
+   ```
+
+3. ✅ **Monitor logs for suspicious activity**
+   ```bash
+   # Check for failed logins, unusual patterns
+   docker-compose logs app | grep -i "error\|fail"
+   ```
+
+4. ✅ **Database security**
+   - Use strong database password
+   - Restrict database access to localhost
+   - Enable SSL for database connections
+
+5. ✅ **HTTPS in production**
+   - Use Let's Encrypt for SSL
+   - Force HTTPS redirects
+   - Update CORS settings
+
+---
+
+## Maintenance Schedule
+
+### Daily
+
+- [ ] Check application logs for errors
+- [ ] Monitor disk space
+- [ ] Verify backups completed
+
+### Weekly
+
+- [ ] Review failed receipts
+- [ ] Check for duplicate receipts
+- [ ] Analyze OCR accuracy
+- [ ] Review rate limit usage
+
+### Monthly
+
+- [ ] Database vacuum and analyze
+- [ ] Review and archive old uploads
+- [ ] Update dependencies
+- [ ] Performance review
+- [ ] Backup verification
+
+### Quarterly
+
+- [ ] Security audit
+- [ ] Review user access
+- [ ] Rotate API credentials
+- [ ] Disaster recovery test
+- [ ] Performance optimization review
+
+---
+
+## Support Escalation
+
+### Level 1: Application Issues
+- OCR problems
+- UI bugs
+- User training
+
+### Level 2: System Issues
+- Database problems
+- API connection issues
+- Performance problems
+
+### Level 3: Critical Issues
+- Data corruption
+- Security breaches
+- System outages
+
+**Contact:**
+- IT Support: support@hdl.com
+- On-call: [Emergency contact]
+
+---
+
+**Last Updated:** 2024
 **Version:** 1.0.0

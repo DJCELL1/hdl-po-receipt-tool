@@ -1,418 +1,386 @@
-# ✅ Railway Deployment Checklist
+# HDL PO Receipt Tool - Deployment Checklist
 
-Use this checklist to ensure a smooth deployment to Railway.
+Complete checklist for deploying the HDL PO Receipt Tool to production.
 
----
+## Pre-Deployment
 
-## 📋 Pre-Deployment Checklist
+### 1. Environment Setup
 
-### 1. Cin7 Credentials Ready
+- [ ] Server/VM provisioned (minimum 2GB RAM, 5GB disk)
+- [ ] Docker and Docker Compose installed
+- [ ] Firewall rules configured (ports 80, 443, 8501)
+- [ ] Domain name configured (if applicable)
+- [ ] SSL certificate obtained (Let's Encrypt recommended)
 
-- [ ] I have my Cin7 API username (goes in `CIN7_API_KEY`)
-- [ ] I have my Cin7 API key (goes in `CIN7_API_SECRET`)
-- [ ] I've tested these credentials work (logged into Cin7)
+### 2. Cin7 API Access
 
-**Where to get them:**
-1. Login to Cin7: https://inventory.cin7.com
-2. Go to Settings → API
-3. Click "Generate API Key"
-4. Copy both values
+- [ ] Cin7 Omni API key obtained
+- [ ] API secret obtained
+- [ ] API permissions verified:
+  - [ ] Purchase Orders (Read & Write)
+  - [ ] Suppliers (Read)
+  - [ ] Products (Read)
+- [ ] API rate limits understood (3/sec, 60/min, 5000/day)
+- [ ] Test API connection successful
 
----
+### 3. Database Preparation
 
-### 2. Railway Account
+- [ ] PostgreSQL credentials generated
+- [ ] Strong database password set
+- [ ] Backup strategy planned
+- [ ] Retention policy defined (recommend 30 days)
 
-- [ ] I have a Railway account
-- [ ] I've connected my GitHub account to Railway
-- [ ] I can access: https://railway.app/dashboard
+### 4. Application Configuration
 
-**Don't have an account yet?**
-1. Go to https://railway.app
-2. Click "Login with GitHub"
-3. Authorize Railway
+- [ ] `.env` file created from `.env.example`
+- [ ] All required variables populated:
+  - [ ] `DATABASE_URL`
+  - [ ] `CIN7_API_KEY`
+  - [ ] `CIN7_API_SECRET`
+  - [ ] `TESSERACT_CMD`
+  - [ ] `POSTGRES_USER`
+  - [ ] `POSTGRES_PASSWORD`
+  - [ ] `POSTGRES_DB`
+- [ ] Passwords are strong and secure
+- [ ] `.env` file NOT committed to git
 
----
+### 5. Code Review
 
-### 3. GitHub Repository
+- [ ] Latest code pulled from repository
+- [ ] Dependencies up to date
+- [ ] No debug code in production
+- [ ] Logging level set appropriately (INFO or WARNING)
+- [ ] Error handling verified
+- [ ] Unit tests passing
 
-- [ ] Code is pushed to: https://github.com/DJCELL1/hdl-po-receipt-tool
-- [ ] I can see all files on GitHub
-- [ ] Latest commits are visible
+## Deployment Steps
 
-**Verify:**
-```powershell
-cd "C:\Users\selwy\OneDrive\Desktop\PROJECTS HDL\Receipt"
-git status
-git log -1
+### 6. Initial Deployment
+
+```bash
+# Navigate to project directory
+cd Receipt
+
+# Build containers
+- [ ] docker-compose build
+
+# Start services
+- [ ] docker-compose up -d
+
+# Verify services running
+- [ ] docker-compose ps
 ```
 
----
+### 7. Database Initialization
 
-## 🚀 Deployment Steps Checklist
+```bash
+# Run database migration
+- [ ] docker-compose exec app python database/migrate.py
 
-### Step 1: Create Railway Project
-
-- [ ] Logged into Railway
-- [ ] Clicked "New Project"
-- [ ] Selected "Deploy from GitHub repo"
-- [ ] Chose `DJCELL1/hdl-po-receipt-tool`
-- [ ] Railway started building
-
----
-
-### Step 2: Add PostgreSQL Database
-
-- [ ] Clicked "+ New" in project
-- [ ] Selected "Database"
-- [ ] Chose "PostgreSQL"
-- [ ] PostgreSQL service is running
-- [ ] I can see `DATABASE_URL` in PostgreSQL variables
-
----
-
-### Step 3: Configure Backend Service
-
-- [ ] Clicked on backend service
-- [ ] Went to "Variables" tab
-- [ ] Added all required variables:
-
-**Backend Variables:**
-```
-- [ ] CIN7_API_KEY=(my actual Cin7 api_username)
-- [ ] CIN7_API_SECRET=(my actual Cin7 api_key)
-- [ ] JWT_SECRET=(random string, changed from default)
-- [ ] DATABASE_URL=${{Postgres.DATABASE_URL}}
-- [ ] NODE_ENV=production
-- [ ] PORT=3001
+# Verify tables created
+- [ ] docker-compose exec db psql -U hdl_user -d hdl_receipts -c "\dt"
 ```
 
-**How to add variables:**
-1. Click "New Variable"
-2. Type name (e.g., `CIN7_API_KEY`)
-3. Type value (e.g., your actual key)
-4. Click "Add"
-5. Repeat for each variable
+### 8. Application Testing
 
----
+#### Health Checks
+- [ ] Application accessible at http://localhost:8501
+- [ ] Health endpoint responds: http://localhost:8501/_stcore/health
+- [ ] Database connection successful
 
-### Step 4: Configure Frontend Service
+#### Functional Testing
+- [ ] Upload test docket image
+- [ ] OCR extraction works
+- [ ] PO search connects to Cin7
+- [ ] Test PO found successfully
+- [ ] Line matching works
+- [ ] Receipt submission successful
+- [ ] Data logged to database
 
-- [ ] Clicked on frontend service
-- [ ] Went to "Variables" tab
-- [ ] Added frontend variables:
+#### End-to-End Test
+- [ ] Create test PO in Cin7 (TEST-0001)
+- [ ] Prepare test docket for TEST-0001
+- [ ] Complete full receipt workflow
+- [ ] Verify receipt in Cin7
+- [ ] Verify data in database
+- [ ] Check audit log
 
-**Frontend Variables:**
-```
-- [ ] REACT_APP_API_URL=(my backend URL from Railway)
-- [ ] NODE_ENV=production
-```
+### 9. Security Configuration
 
-**To find backend URL:**
-1. Click on backend service
-2. Go to "Settings" tab
-3. Scroll to "Domains"
-4. Copy the URL (e.g., `https://hdl-po-receipt-backend-production-abc123.up.railway.app`)
-5. Paste into `REACT_APP_API_URL`
+- [ ] Firewall rules active
+- [ ] Only necessary ports exposed
+- [ ] Strong passwords used everywhere
+- [ ] API credentials stored securely
+- [ ] Database accessible only from localhost
+- [ ] HTTPS enabled (production)
+- [ ] Security headers configured (if using reverse proxy)
 
----
+### 10. Monitoring Setup
 
-### Step 5: Deploy and Verify
+- [ ] Log rotation configured
+- [ ] Disk space monitoring active
+- [ ] Database backup script installed
+- [ ] Backup cron job scheduled
+- [ ] Health check monitoring (optional)
+- [ ] Alert notifications configured (optional)
 
-- [ ] Both services show "Deployed" status
-- [ ] No build errors in logs
-- [ ] Backend health check passes
-- [ ] Frontend loads in browser
+## Post-Deployment
 
-**Verify backend health:**
-1. Get backend URL from Railway
-2. Open: `https://your-backend-url/health`
-3. Should see: `{"status":"ok","database":"connected"}`
+### 11. Documentation
 
-**Verify frontend:**
-1. Get frontend URL from Railway
-2. Open in browser
-3. Should see Hardware Direct dashboard
+- [ ] README.md updated with production URLs
+- [ ] Admin credentials documented (securely)
+- [ ] Support contacts updated
+- [ ] Backup/restore procedures documented
+- [ ] Troubleshooting guide accessible
 
----
+### 12. User Training
 
-## 🧪 Testing Checklist
+- [ ] Training session scheduled
+- [ ] User guide provided
+- [ ] Test accounts created
+- [ ] Practice session completed
+- [ ] Feedback collected
 
-### Test 1: Frontend Loads
+### 13. Go-Live Preparation
 
-- [ ] Frontend URL opens
-- [ ] No console errors (press F12)
-- [ ] Orange Hardware Direct theme visible
-- [ ] "Scan New Delivery Docket" button visible
+- [ ] Maintenance window scheduled (if needed)
+- [ ] Users notified of launch
+- [ ] Support team on standby
+- [ ] Rollback plan documented
+- [ ] Success criteria defined
 
----
+### 14. Go-Live
 
-### Test 2: Upload Works
+- [ ] Application accessible to users
+- [ ] First real receipt completed successfully
+- [ ] Users can access application
+- [ ] No critical errors in logs
+- [ ] Performance acceptable
+- [ ] Cin7 integration working
 
-- [ ] Click "Scan New Delivery Docket"
-- [ ] Upload a test image
-- [ ] OCR extraction completes
-- [ ] Data appears on Review screen
+### 15. Post Go-Live Monitoring
 
----
+**First 24 Hours:**
+- [ ] Monitor logs hourly
+- [ ] Check error rates
+- [ ] Verify receipts in Cin7
+- [ ] User feedback collected
+- [ ] Performance metrics recorded
 
-### Test 3: Cin7 Connection
+**First Week:**
+- [ ] Daily log review
+- [ ] Performance monitoring
+- [ ] User satisfaction survey
+- [ ] Issue tracking
+- [ ] Optimization opportunities identified
 
-- [ ] Enter a real PO number
-- [ ] Click "Match PO"
-- [ ] Cin7 search executes
-- [ ] Results returned (or "not found" if invalid PO)
+**First Month:**
+- [ ] Weekly performance review
+- [ ] Database maintenance
+- [ ] Backup verification
+- [ ] Usage statistics analysis
+- [ ] Feature requests collected
 
-**This confirms:**
-- ✅ Backend can reach Cin7 API
-- ✅ Credentials are correct
-- ✅ Network connectivity works
+## Verification Checklist
 
----
+### Critical Functionality
 
-### Test 4: Database Works
-
-- [ ] Complete a test receipt
-- [ ] Go to "Receipt History"
-- [ ] Your test receipt appears
-- [ ] Can click to view details
-
-**This confirms:**
-- ✅ PostgreSQL connected
-- ✅ Migrations ran successfully
-- ✅ Data persists
-
----
-
-## 🔧 Troubleshooting Checklist
-
-### Issue: Build Failed
-
-- [ ] Check deployment logs in Railway
-- [ ] Look for "error" or "failed" messages
-- [ ] Verify all config files are in GitHub
-- [ ] Try redeploying
-
-**How to check logs:**
-1. Click on service
-2. Go to "Deployments" tab
-3. Click latest deployment
-4. Click "View Logs"
-
----
-
-### Issue: Backend Won't Start
-
-- [ ] Verify `PORT=3001` is set
-- [ ] Check `DATABASE_URL` is set
-- [ ] Check Cin7 credentials are correct
-- [ ] Look at backend logs for errors
-
-**Common fixes:**
-```
-- Missing environment variable → Add it
-- Typo in variable → Fix spelling
-- Wrong port → Set PORT=3001
-```
-
----
-
-### Issue: Frontend Can't Connect to Backend
-
-- [ ] Check `REACT_APP_API_URL` matches backend URL
-- [ ] Verify backend is running (green status)
-- [ ] Check CORS errors in browser console (F12)
-- [ ] Redeploy frontend after changing variables
-
-**Fix:**
-1. Get correct backend URL from Railway
-2. Update `REACT_APP_API_URL` in frontend variables
-3. Redeploy frontend (Railway → frontend service → "Deploy")
-
----
-
-### Issue: Database Connection Failed
-
-- [ ] PostgreSQL service is running
-- [ ] `DATABASE_URL` is set in backend
-- [ ] Format is: `${{Postgres.DATABASE_URL}}`
-- [ ] Check backend logs for connection errors
-
-**Fix:**
-```
-DATABASE_URL should be:
-${{Postgres.DATABASE_URL}}
-
-NOT:
-- Empty
-- A real URL (Railway fills it automatically)
-- Anything else
-```
-
----
-
-### Issue: Cin7 API Errors
-
-- [ ] Credentials are correct (check Cin7 dashboard)
-- [ ] No typos in `CIN7_API_KEY` or `CIN7_API_SECRET`
-- [ ] Backend logs show what error Cin7 returned
-- [ ] Try testing credentials in Cin7 web interface
-
-**Common errors:**
-```
-401 Unauthorized → Wrong credentials
-429 Too Many Requests → Rate limited (wait)
-404 Not Found → PO doesn't exist in Cin7
-```
-
----
-
-## 📱 Mobile Testing Checklist
-
-- [ ] Open frontend URL on phone
-- [ ] Layout looks good on mobile
-- [ ] Can access camera
-- [ ] Can take photo of docket
-- [ ] Upload works
-- [ ] Buttons are easy to tap
-
----
-
-## 🎯 Production Readiness Checklist
-
-### Security
-
-- [ ] `JWT_SECRET` is changed from default
-- [ ] `.env` file not in GitHub (check .gitignore)
-- [ ] Cin7 credentials only in Railway (not in code)
-- [ ] HTTPS enabled (Railway does this automatically)
-
----
+- [ ] ✅ Users can upload dockets (camera & file)
+- [ ] ✅ OCR extracts text accurately
+- [ ] ✅ PO matching finds correct POs
+- [ ] ✅ Backorder suffixes (A/B/C) handled
+- [ ] ✅ Line items matched correctly
+- [ ] ✅ Duplicate detection works
+- [ ] ✅ Receipts submit to Cin7
+- [ ] ✅ Audit log captures all actions
 
 ### Performance
 
-- [ ] Health check endpoint responds quickly
-- [ ] Upload/OCR completes in <10 seconds
-- [ ] PO matching completes in <5 seconds
-- [ ] Database queries are fast
+- [ ] ✅ Page load < 3 seconds
+- [ ] ✅ OCR processing < 10 seconds
+- [ ] ✅ PO search < 2 seconds
+- [ ] ✅ Receipt submission < 5 seconds
+- [ ] ✅ No timeout errors
+- [ ] ✅ Rate limits respected
 
----
+### Security
 
-### Monitoring
+- [ ] ✅ No credentials in code
+- [ ] ✅ No credentials in logs
+- [ ] ✅ Database password strong
+- [ ] ✅ API keys not exposed
+- [ ] ✅ HTTPS enabled (production)
+- [ ] ✅ Firewall active
 
-- [ ] Can access Railway deployment logs
-- [ ] Can see backend logs
-- [ ] Can see frontend logs
-- [ ] Health check endpoint monitored
+### Reliability
 
-**Bookmark these:**
-```
-Railway Dashboard: https://railway.app/dashboard
-Backend Logs: Railway → backend service → Logs
-Frontend Logs: Railway → frontend service → Logs
-Health Check: https://your-backend-url/health
-```
+- [ ] ✅ Error handling works
+- [ ] ✅ Retry logic functional
+- [ ] ✅ Database transactions atomic
+- [ ] ✅ No data loss on errors
+- [ ] ✅ Backups working
+- [ ] ✅ Recovery tested
 
----
+## Rollback Plan
 
-### Documentation
+If critical issues occur:
 
-- [ ] Team knows the frontend URL
-- [ ] Team knows how to use the app
-- [ ] Instructions saved for future reference
-- [ ] Know how to check logs if issues occur
+### Immediate Actions
+1. Stop accepting new receipts
+2. Identify issue from logs
+3. Assess impact
 
----
+### Rollback Steps
+```bash
+# Stop application
+docker-compose down
 
-## ✅ Final Verification
+# Restore previous version (if needed)
+git checkout <previous-commit>
+docker-compose up -d
 
-### All Green?
-
-- [ ] Frontend status: Deployed ✅
-- [ ] Backend status: Deployed ✅
-- [ ] PostgreSQL status: Running ✅
-- [ ] Health check: OK ✅
-- [ ] Test upload: Works ✅
-- [ ] Cin7 connection: Works ✅
-- [ ] Mobile access: Works ✅
-
----
-
-### Share with Team
-
-- [ ] Frontend URL shared
-- [ ] Instructions provided
-- [ ] Demo completed
-- [ ] Questions answered
-
-**Example message:**
-```
-🎉 Our new PO Receipt Tool is live!
-
-📱 Access it here:
-https://your-frontend-url.railway.app
-
-How to use:
-1. Open URL on your phone
-2. Click "Scan New Delivery Docket"
-3. Take photo of docket
-4. Review extracted data
-5. Confirm and submit
-
-The app will automatically:
-- Extract supplier, PO, items
-- Find matching PO in Cin7
-- Create the receipt
-- Update Cin7
-
-Questions? Check the guides or ask me!
+# Restore database (if needed)
+docker-compose exec -T db psql -U hdl_user hdl_receipts < backup.sql
 ```
 
+### Communication
+- Notify users of downtime
+- Provide status updates
+- Communicate resolution timeline
+
+## Success Criteria
+
+Deployment is successful when:
+
+- [ ] ✅ Application is accessible
+- [ ] ✅ 10+ successful receipts completed
+- [ ] ✅ Zero critical errors
+- [ ] ✅ User feedback positive
+- [ ] ✅ Performance meets requirements
+- [ ] ✅ Cin7 integration stable
+- [ ] ✅ Backups operational
+- [ ] ✅ Support team trained
+
+## Sign-Off
+
+### Technical Sign-Off
+
+| Role | Name | Signature | Date |
+|------|------|-----------|------|
+| Developer | | | |
+| System Admin | | | |
+| Database Admin | | | |
+| Security | | | |
+
+### Business Sign-Off
+
+| Role | Name | Signature | Date |
+|------|------|-----------|------|
+| Warehouse Manager | | | |
+| IT Manager | | | |
+| Operations Manager | | | |
+
+## Support Plan
+
+### Support Contacts
+
+| Issue Type | Contact | Method |
+|------------|---------|--------|
+| User questions | IT Help Desk | support@hdl.com |
+| Technical issues | System Admin | admin@hdl.com |
+| Critical outages | On-call | [Emergency #] |
+
+### Escalation Path
+
+1. **Level 1**: Help desk (user issues, training)
+2. **Level 2**: System admin (technical issues)
+3. **Level 3**: Developer (critical bugs)
+
+### SLA Targets
+
+| Priority | Response Time | Resolution Time |
+|----------|---------------|-----------------|
+| Critical | 1 hour | 4 hours |
+| High | 4 hours | 24 hours |
+| Medium | 1 day | 3 days |
+| Low | 3 days | 1 week |
+
+## Maintenance Schedule
+
+### Daily
+- [ ] Log review
+- [ ] Error monitoring
+- [ ] Disk space check
+
+### Weekly
+- [ ] Performance review
+- [ ] Database maintenance
+- [ ] Backup verification
+
+### Monthly
+- [ ] Dependency updates
+- [ ] Security patches
+- [ ] Usage analysis
+- [ ] User feedback review
+
+### Quarterly
+- [ ] Full security audit
+- [ ] Disaster recovery test
+- [ ] Performance optimization
+- [ ] Feature roadmap review
+
+## Notes
+
+Add any deployment-specific notes here:
+
+```
+Date: _______________
+Deployed by: _______________
+Environment: _______________
+Version: _______________
+
+Notes:
+_________________________________
+_________________________________
+_________________________________
+```
+
 ---
 
-## 🎉 Deployment Complete!
+## Quick Command Reference
 
-If all items are checked above, you're done! 🚀
+```bash
+# Start application
+docker-compose up -d
 
-Your Hardware Direct PO Receipt Tool is:
-- ✅ Deployed to Railway
-- ✅ Accessible from anywhere
-- ✅ Connected to Cin7
-- ✅ Storing data in PostgreSQL
-- ✅ Ready for production use
+# Stop application
+docker-compose down
 
----
+# View logs
+docker-compose logs -f app
 
-## 🔄 Future Updates
+# Restart services
+docker-compose restart
 
-When you want to update the app:
+# Check status
+docker-compose ps
 
-1. Make changes locally
-2. Test locally: `docker-compose up -d`
-3. Commit: `git add . && git commit -m "Update"`
-4. Push: `git push origin main`
-5. Railway auto-deploys in 2-3 minutes
+# Backup database
+docker-compose exec -T db pg_dump -U hdl_user hdl_receipts > backup_$(date +%Y%m%d).sql
 
-- [ ] I know how to update the app
-- [ ] I know Railway auto-deploys on git push
-- [ ] I know how to check deployment status
+# Restore database
+docker-compose exec -T db psql -U hdl_user hdl_receipts < backup.sql
 
----
+# View database
+docker-compose exec db psql -U hdl_user hdl_receipts
 
-## 📚 Reference Documents
-
-Keep these handy:
-
-| Document | When to Use |
-|----------|-------------|
-| **RAILWAY_QUICK_START.md** | Quick 5-minute deploy |
-| **DEPLOY_TO_RAILWAY.md** | Detailed deployment guide |
-| **RAILWAY_ARCHITECTURE.md** | How everything works |
-| **DEPLOYMENT_SUMMARY.md** | Overview and links |
-| **START_HERE.md** | Local development |
-| **NO_AUTH_MODE.md** | Authentication info |
+# Clean old uploads (90+ days)
+find uploads/ -mtime +90 -type f -delete
+```
 
 ---
 
-**Need help?** Re-check this list or review the deployment guides!
-
-**All done?** Congratulations! 🎉 Your app is live!
+**Deployment Version**: 1.0.0
+**Last Updated**: 2024
+**Status**: Ready for Production ✅

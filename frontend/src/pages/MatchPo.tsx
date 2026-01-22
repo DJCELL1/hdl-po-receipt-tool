@@ -1,1 +1,0 @@
-export { MatchPo as default } from './AllPages';

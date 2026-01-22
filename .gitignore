@@ -1,34 +1,39 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
+# HDL PO Receipt Tool - Git Ignore
 
-# Testing
-coverage/
-*.lcov
-
-# Production
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Environment variables
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
+.env.production
 
 # IDE
 .vscode/
@@ -36,16 +41,46 @@ Thumbs.db
 *.swp
 *.swo
 *~
+.DS_Store
 
-# Uploads
+# Streamlit
+.streamlit/secrets.toml
+
+# Uploads (exclude actual files)
 uploads/*
 !uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+app.log
 
 # Database
 *.db
 *.sqlite
+*.sql
 
-# Misc
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Docker
+docker-compose.override.yml
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Backup files
+*.bak
+backup*.sql
+*.tar.gz
+*.zip
+
+# Temporary files
+*.tmp
+*.temp
 .cache/
-temp/
-tmp/
