@@ -19,10 +19,10 @@ if (!existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + '-' + file.originalname);
   }
@@ -91,7 +91,7 @@ router.post(
       });
     } catch (error) {
       console.error('Upload processing error:', error);
-      res.status(500).json({ error: 'Failed to process docket' });
+      return res.status(500).json({ error: 'Failed to process docket' });
     }
   }
 );
@@ -122,7 +122,7 @@ router.post(
       res.json(matchResult);
     } catch (error) {
       console.error('PO matching error:', error);
-      res.status(500).json({ error: 'Failed to match Purchase Order' });
+      return res.status(500).json({ error: 'Failed to match Purchase Order' });
     }
   }
 );
@@ -153,7 +153,7 @@ router.post(
       });
     } catch (error) {
       console.error('Line matching error:', error);
-      res.status(500).json({ error: 'Failed to match line items' });
+      return res.status(500).json({ error: 'Failed to match line items' });
     }
   }
 );
@@ -312,7 +312,7 @@ router.post(
         console.error('Failed to log error receipt:', dbError);
       }
 
-      res.status(500).json({ error: 'Failed to create receipt', details: error.message });
+      return res.status(500).json({ error: 'Failed to create receipt', details: error.message });
     }
   }
 );
@@ -348,7 +348,7 @@ router.get(
       });
     } catch (error) {
       console.error('Receipt history error:', error);
-      res.status(500).json({ error: 'Failed to fetch receipt history' });
+      return res.status(500).json({ error: 'Failed to fetch receipt history' });
     }
   }
 );
@@ -384,7 +384,7 @@ router.get(
       });
     } catch (error) {
       console.error('Receipt detail error:', error);
-      res.status(500).json({ error: 'Failed to fetch receipt details' });
+      return res.status(500).json({ error: 'Failed to fetch receipt details' });
     }
   }
 );

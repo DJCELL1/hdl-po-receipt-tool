@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { Cin7Config, Cin7PurchaseOrder, Cin7Product, Cin7ProductOption, Cin7ReceiptPayload } from './types';
+import { Cin7Config, Cin7PurchaseOrder, Cin7Product, Cin7ProductOption } from './types';
 import { RateLimiter } from './rateLimiter';
 
 export class Cin7Client {

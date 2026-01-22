@@ -51,7 +51,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(join(__dirname, '../uploads')));
 
 // Health check
-app.get('/health', async (req, res) => {
+app.get('/health', async (_req, res) => {
   try {
     await db.query('SELECT 1');
     res.json({ status: 'ok', database: 'connected' });
@@ -65,7 +65,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dockets', docketRoutes);
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err);
 
   if (err instanceof SyntaxError && 'body' in err) {
@@ -76,14 +76,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     return res.status(413).json({ error: 'File size exceeds limit (10MB)' });
   }
 
-  res.status(500).json({
+  return res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 

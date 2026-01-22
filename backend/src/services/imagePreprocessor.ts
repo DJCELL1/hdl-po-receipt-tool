@@ -109,7 +109,7 @@ export class ImagePreprocessor {
   /**
    * Convert PDF page to image
    */
-  async convertPdfToImage(pdfPath: string, pageNumber = 0): Promise<string> {
+  async convertPdfToImage(_pdfPath: string, _pageNumber = 0): Promise<string> {
     // For production, you'd use pdf-poppler or similar
     // This is a placeholder that assumes pdf-parse extracts text directly
     throw new Error('PDF to image conversion requires additional setup (pdf-poppler)');

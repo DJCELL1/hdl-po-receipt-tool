@@ -1,5 +1,6 @@
 import { createWorker, Worker } from 'tesseract.js';
 import { imagePreprocessor } from './imagePreprocessor';
+// @ts-ignore - pdf-parse doesn't have type definitions
 import pdfParse from 'pdf-parse';
 import { readFileSync } from 'fs';
 

@@ -40,7 +40,7 @@ router.post(
         return res.status(409).json({ error: 'Email already exists' });
       }
       console.error('Registration error:', error);
-      res.status(500).json({ error: 'Registration failed' });
+      return res.status(500).json({ error: 'Registration failed' });
     }
   }
 );
@@ -82,7 +82,7 @@ router.post(
       });
     } catch (error) {
       console.error('Login error:', error);
-      res.status(500).json({ error: 'Login failed' });
+      return res.status(500).json({ error: 'Login failed' });
     }
   }
 );

@@ -1,6 +1,6 @@
 import { Cin7Client } from '../cin7/cin7Client';
 import { Cin7PurchaseOrder } from '../cin7/types';
-import { normalizePoRef, generateSearchVariants, calculateSimilarity } from '../utils/poReference';
+import { normalizePoRef, calculateSimilarity } from '../utils/poReference';
 
 export interface PoMatchCandidate {
   po: Cin7PurchaseOrder;
