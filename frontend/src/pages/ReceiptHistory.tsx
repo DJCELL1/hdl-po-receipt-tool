@@ -1,0 +1,1 @@
+export { ReceiptHistory as default } from './AllPages';

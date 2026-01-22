@@ -1,0 +1,1 @@
+export { ConfirmReceipt as default } from './AllPages';

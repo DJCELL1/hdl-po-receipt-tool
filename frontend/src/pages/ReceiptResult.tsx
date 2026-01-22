@@ -1,0 +1,1 @@
+export { ReceiptResult as default } from './AllPages';
