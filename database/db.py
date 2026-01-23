@@ -10,8 +10,16 @@ from datetime import datetime
 import uuid
 import config
 
-# Create engine
-engine = create_engine(config.DATABASE_URL, pool_pre_ping=True)
+# Create engine with psycopg3 support
+# Convert postgresql:// to postgresql+psycopg:// for psycopg3
+database_url = config.DATABASE_URL
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+elif database_url.startswith("postgres://"):
+    # Heroku/Render style URLs
+    database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+
+engine = create_engine(database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
