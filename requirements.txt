@@ -1,33 +1,27 @@
 # HDL PO Receipt Tool - Streamlit Cloud Dependencies
-# Optimized for Streamlit Cloud deployment
+# Compatible with Python 3.13
 
 # Streamlit Framework
-streamlit==1.32.0
+streamlit
 
-# Database - Using psycopg3 (pure Python, no compilation needed)
-psycopg==3.1.18
-psycopg-binary==3.1.18
-sqlalchemy==2.0.27
+# Database - psycopg3 (pure Python)
+psycopg
+sqlalchemy
 
 # OCR & Image Processing
-pytesseract==0.3.10
-opencv-python-headless==4.9.0.80  # Headless version for cloud
-Pillow>=10.0.0  # Flexible version for compatibility
-pdf2image==1.17.0
+pytesseract
+opencv-python-headless
+Pillow
+pdf2image
 
 # API & HTTP
-requests==2.31.0
-urllib3==2.2.0
+requests
+urllib3
 
 # Fuzzy Matching
-fuzzywuzzy==0.18.0
-python-Levenshtein==0.25.0
+fuzzywuzzy
+python-Levenshtein
 
 # Utilities
-python-dotenv==1.0.1
-pydantic==2.6.1
-
-# Testing (optional for cloud)
-# pytest==8.0.0
-# pytest-cov==4.1.0
-# responses==0.24.1
+python-dotenv
+pydantic
