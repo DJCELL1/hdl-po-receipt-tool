@@ -4,7 +4,7 @@
 streamlit==1.32.0
 
 # Database
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9  # Use psycopg (psycopg3) if build fails on cloud
 sqlalchemy==2.0.27
 
 # OCR & Image Processing
