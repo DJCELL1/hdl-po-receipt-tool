@@ -1,17 +1,18 @@
 # HDL PO Receipt Tool - Streamlit Cloud Dependencies
-# Use this for Streamlit Cloud deployment if psycopg2-binary fails
+# Optimized for Streamlit Cloud deployment
 
 # Streamlit Framework
 streamlit==1.32.0
 
 # Database - Using psycopg3 (pure Python, no compilation needed)
-psycopg[binary]==3.1.18
+psycopg==3.1.18
+psycopg-binary==3.1.18
 sqlalchemy==2.0.27
 
 # OCR & Image Processing
 pytesseract==0.3.10
 opencv-python-headless==4.9.0.80  # Headless version for cloud
-Pillow==10.2.0
+Pillow>=10.0.0  # Flexible version for compatibility
 pdf2image==1.17.0
 
 # API & HTTP
