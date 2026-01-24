@@ -19,7 +19,12 @@ elif database_url.startswith("postgres://"):
     # Heroku/Render style URLs
     database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
 
-engine = create_engine(database_url, pool_pre_ping=True)
+# Create engine with connect_args to handle connection issues gracefully
+engine = create_engine(
+    database_url,
+    pool_pre_ping=True,
+    connect_args={"connect_timeout": 5}
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

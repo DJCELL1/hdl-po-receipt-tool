@@ -14,8 +14,13 @@ load_dotenv()
 # Try to import streamlit for cloud deployment
 try:
     import streamlit as st
-    IN_STREAMLIT_CLOUD = hasattr(st, 'secrets') and len(st.secrets) > 0
-except (ImportError, RuntimeError):
+    # Check if we're in Streamlit Cloud by attempting to access secrets
+    try:
+        IN_STREAMLIT_CLOUD = hasattr(st, 'secrets') and len(st.secrets) > 0
+    except (FileNotFoundError, RuntimeError):
+        # No secrets file means we're running locally
+        IN_STREAMLIT_CLOUD = False
+except ImportError:
     IN_STREAMLIT_CLOUD = False
 
 
