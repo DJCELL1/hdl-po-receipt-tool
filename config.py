@@ -12,16 +12,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Try to import streamlit for cloud deployment
+IN_STREAMLIT_CLOUD = False
 try:
     import streamlit as st
-    # Check if we're in Streamlit Cloud by attempting to access secrets
-    try:
-        IN_STREAMLIT_CLOUD = hasattr(st, 'secrets') and len(st.secrets) > 0
-    except (FileNotFoundError, RuntimeError):
-        # No secrets file means we're running locally
-        IN_STREAMLIT_CLOUD = False
+    # Only use secrets if they actually exist (Streamlit Cloud deployment)
+    # Don't try to access st.secrets here as it will fail locally
+    # We'll check in get_env() instead
 except ImportError:
-    IN_STREAMLIT_CLOUD = False
+    st = None
 
 
 def get_env(key: str, default: str = "") -> str:
@@ -35,11 +33,16 @@ def get_env(key: str, default: str = "") -> str:
     Returns:
         Environment variable value or default
     """
-    if IN_STREAMLIT_CLOUD:
+    # First try Streamlit secrets (only in cloud)
+    if st is not None:
         try:
-            return st.secrets.get(key, os.getenv(key, default))
-        except Exception:
+            if hasattr(st, 'secrets') and key in st.secrets:
+                return st.secrets[key]
+        except (FileNotFoundError, RuntimeError, KeyError):
+            # No secrets file or key not found, fall through to env vars
             pass
+
+    # Fall back to environment variables (works locally and in cloud)
     return os.getenv(key, default)
 
 
